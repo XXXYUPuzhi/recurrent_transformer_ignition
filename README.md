@@ -61,6 +61,7 @@ Output Head (Linear 32 -> 8, softmax)
 ```
 
 **Key design decisions:**
+- **Full-sequence input at T=0** — all L=10 coordinates are embedded once before the recurrent loop begins; subsequent iterations receive no new external data. T indexes *thinking steps*, not time-steps of a streaming sequence.
 - **Weight sharing** across all T recurrent steps — forces the model to learn through "thinking time" rather than parameter capacity
 - **VIB placed after recurrence** (readout stage), not inside the loop — inside-loop placement causes Posterior Collapse; readout placement aligns with GNW "broadcast" semantics
 - **Bottleneck dimension = 2** — same dimensionality as the input coordinates, forcing the model to "reinvent" the input geometry
@@ -108,9 +109,11 @@ where &beta;(t) follows a tanh annealing schedule.
   <img src="results/linear_probe.png" width="70%" alt="Linear probe results">
 </p>
 
-- **Position probe (P):** 97-100% accuracy across all recurrent steps — position information is always available
-- **Rule probe (R):** Rises from 33% (chance) at t=0 to 91% at t=6 — rule information *gradually emerges* across recurrent steps
-- This directly supports the "Recurrence as Thinking Time" hypothesis
+> **Critical design note:** The entire sequence (all L=10 vertex coordinates) is fed to the model **simultaneously at the embedding stage**, before any recurrent iteration begins. The recurrent index T does *not* correspond to "how many tokens have been seen" — by T=0 the model already has access to the full trajectory. Therefore, the gradual rise of rule decodability across T cannot be explained by incremental data exposure. It is purely a product of **iterative computation (thinking time)**.
+
+- **Position probe (P):** 97-100% accuracy across all recurrent steps — position information is always available from T=0, confirming the full sequence is present throughout
+- **Rule probe (R):** Rises from 33% (chance) at T=0 to 91% at T=6 — rule information *gradually emerges* across recurrent steps despite no new data being introduced
+- This directly supports the "Recurrence as Thinking Time" hypothesis: the network needs multiple passes over its own hidden state to distill an abstract rule from data it already holds in full
 
 ### 4. Bottleneck Representation Geometry
 
